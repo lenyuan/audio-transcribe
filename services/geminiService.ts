@@ -1,42 +1,26 @@
 import { type TranscriptSegment } from '../types';
+import { upload } from '@vercel/blob/client';
 
 export const transcribeAudio = async (
   file: File,
   updateLoadingMessage: (message: string) => void
 ): Promise<TranscriptSegment[]> => {
   try {
-    // Step 1: Request a secure upload URL from our new backend endpoint.
-    updateLoadingMessage('Requesting secure upload link...');
-    const uploadUrlResponse = await fetch(`/api/upload-url?filename=${encodeURIComponent(file.name)}`);
-    if (!uploadUrlResponse.ok) {
-        const errorData = await uploadUrlResponse.json();
-        throw new Error(errorData.error || 'Failed to get upload URL.');
-    }
-    const { url: uploadUrl } = await uploadUrlResponse.json();
-
-    // Step 2: Upload the file directly to Vercel Blob storage using the secure URL.
+    // Step 1 & 2: Use the Vercel Blob client helper to handle the upload process.
+    // It automatically requests the secure URL and uploads the file.
     updateLoadingMessage('Uploading file to secure storage (this may take a moment)...');
-    const uploadResponse = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'x-ms-blob-type': 'BlockBlob',
-      },
+    
+    const blob = await upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload-url',
     });
-
-    if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload file to storage. Status: ${uploadResponse.statusText}`);
-    }
-
-    // The 'uploadUrl' contains query parameters. We only need the base URL for the 'fileUrl' to send to our transcription service.
-    const fileUrl = uploadUrl.split('?')[0];
 
     // Step 3: Send the URL of the stored file to our transcription endpoint.
     updateLoadingMessage('File uploaded. Sending to AI for transcription...');
     const transcribeResponse = await fetch('/api/transcribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileUrl }),
+      body: JSON.stringify({ fileUrl: blob.url }),
     });
 
     if (!transcribeResponse.ok) {
