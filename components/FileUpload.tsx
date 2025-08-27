@@ -1,8 +1,10 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { UploadCloud, FileAudio, XCircle } from 'lucide-react';
 
 interface FileUploadProps {
   onFileSelect: (file: File | null) => void;
   disabled: boolean;
+  file: File | null;
 }
 
 const ALLOWED_MIME_TYPES = ['audio/mp4', 'audio/m4a', 'audio/x-m4a'];
@@ -12,17 +14,27 @@ const isValidFile = (file: File): boolean => {
   return ALLOWED_MIME_TYPES.includes(file.type) || fileExtension === 'm4a';
 };
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled }) => {
-  const [fileName, setFileName] = useState<string>('');
+export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled, file }) => {
+  const [dragError, setDragError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileValidation = (file: File | undefined) => {
-    if (file && isValidFile(file)) {
-      setFileName(file.name);
-      onFileSelect(file);
-    } else if (file) {
-      setFileName('Invalid file type. Please select an M4A file.');
+  useEffect(() => {
+    if (file === null) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [file]);
+
+  const handleFileValidation = (selectedFile: File | undefined) => {
+    setDragError(null);
+    if (selectedFile && isValidFile(selectedFile)) {
+      onFileSelect(selectedFile);
+    } else if (selectedFile) {
+      setDragError('Invalid file type. Please select an M4A audio file.');
+      onFileSelect(null);
+    } else {
       onFileSelect(null);
     }
   };
@@ -54,38 +66,63 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled }
     setIsDragging(false);
     if(disabled) return;
     
-    const file = e.dataTransfer.files?.[0];
-    handleFileValidation(file);
+    const droppedFile = e.dataTransfer.files?.[0];
+    handleFileValidation(droppedFile);
      
-    if(fileInputRef.current) {
-      fileInputRef.current.files = e.dataTransfer.files;
+    if(droppedFile && fileInputRef.current) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(droppedFile);
+      fileInputRef.current.files = dataTransfer.files;
     }
-  }, [disabled, onFileSelect, handleFileValidation]);
+  }, [disabled, onFileSelect]);
 
-  const baseClasses = "flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300";
-  const idleClasses = "bg-slate-700/50 border-slate-600 hover:bg-slate-700";
+  const baseClasses = "flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-300 relative";
+  const idleClasses = "bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-sky-500";
   const draggingClasses = "bg-sky-900/50 border-sky-500";
   const disabledClasses = "bg-slate-800 border-slate-700 cursor-not-allowed opacity-50";
+  const errorClasses = "bg-red-900/30 border-red-700";
 
+  const getContainerClasses = () => {
+    if (disabled) return disabledClasses;
+    if (dragError) return errorClasses;
+    if (isDragging) return draggingClasses;
+    return idleClasses;
+  }
+  
   return (
     <div className="flex items-center justify-center w-full">
       <label
         htmlFor="dropzone-file"
-        className={`${baseClasses} ${disabled ? disabledClasses : isDragging ? draggingClasses : idleClasses}`}
+        className={`${baseClasses} ${getContainerClasses()}`}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-          <svg className="w-10 h-10 mb-4 text-slate-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-            <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
-          </svg>
-          <p className="mb-2 text-sm text-slate-400">
-            <span className="font-semibold text-sky-400">Click to upload</span> or drag and drop
-          </p>
-          <p className="text-xs text-slate-500">M4A audio files only</p>
-          {fileName && <p className="mt-4 text-sm font-medium text-slate-300">{fileName}</p>}
+        <div className="flex flex-col items-center justify-center text-center p-4">
+          {!file && !dragError && (
+            <>
+              <UploadCloud className="w-10 h-10 mb-4 text-slate-400" aria-hidden="true" />
+              <p className="mb-2 text-sm text-slate-400">
+                <span className="font-semibold text-sky-400">Click to upload</span> or drag and drop
+              </p>
+              <p className="text-xs text-slate-500">M4A audio files only</p>
+            </>
+          )}
+          {file && (
+            <div className="flex flex-col items-center justify-center text-center">
+              <FileAudio className="w-10 h-10 mb-4 text-green-400" />
+              <p className="text-sm font-medium text-slate-300 break-all">{file.name}</p>
+              <p className="text-xs text-slate-400 mt-1">File selected. Ready to transcribe.</p>
+            </div>
+          )}
+          {dragError && (
+            <div className="flex flex-col items-center justify-center text-center">
+                <XCircle className="w-10 h-10 mb-4 text-red-400" />
+                <p className="text-sm font-medium text-red-300">{dragError}</p>
+                <p className="text-xs text-slate-400 mt-1">Please try again.</p>
+            </div>
+          )}
         </div>
         <input ref={fileInputRef} id="dropzone-file" type="file" className="hidden" accept=".m4a,audio/mp4,audio/m4a,audio/x-m4a" onChange={handleFileChange} disabled={disabled} />
       </label>

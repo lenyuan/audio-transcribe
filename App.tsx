@@ -1,33 +1,51 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { FileUpload } from './components/FileUpload';
-import { TranscriptDisplay } from './components/TranscriptDisplay';
+import { TranscriptDisplay, SkeletonLoader } from './components/TranscriptDisplay';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { Spinner } from './components/Spinner';
 import { transcribeAudio } from './services/geminiService';
 import { type TranscriptSegment } from './types';
+import { RefreshCw, Download, AlertTriangle } from 'lucide-react';
+
+
+type Status = 'initial' | 'fileSelected' | 'loading' | 'success' | 'error';
 
 const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [status, setStatus] = useState<Status>('initial');
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [transcript, setTranscript] = useState<TranscriptSegment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = (selectedFile: File | null) => {
-    setFile(selectedFile);
+    if (selectedFile) {
+        setFile(selectedFile);
+        setStatus('fileSelected');
+        setTranscript(null);
+        setError(null);
+    } else {
+        setFile(null);
+        setStatus('initial');
+    }
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setStatus('initial');
     setTranscript(null);
     setError(null);
-  };
+    setLoadingMessage('');
+  }
 
   const handleTranscribe = useCallback(async () => {
     if (!file) {
       setError('Please select an M4A file first.');
+      setStatus('error');
       return;
     }
 
-    setIsLoading(true);
+    setStatus('loading');
     setLoadingMessage('Preparing audio file...');
     setError(null);
     setTranscript(null);
@@ -38,20 +56,22 @@ const App: React.FC = () => {
       
       if (result && result.length > 0) {
         setTranscript(result);
+        setStatus('success');
       } else {
         setError("Transcription failed or returned no content. The audio might be silent or unclear.");
+        setStatus('error');
       }
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred during transcription.');
+      setStatus('error');
     } finally {
-      setIsLoading(false);
       setLoadingMessage('');
     }
   }, [file]);
 
-  const handleDownloadSrt = useCallback(() => {
-    if (!transcript || !file) return;
+  const srtContent = useMemo(() => {
+    if (!transcript) return '';
 
     const parseMMSS = (timestamp: string): number => {
       const parts = timestamp.split(':').map(Number);
@@ -63,20 +83,20 @@ const App: React.FC = () => {
       const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
       const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
       const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
-      return `${hours}:${minutes}:${seconds},000`;
+      const milliseconds = (Math.round((totalSeconds % 1) * 1000)).toString().padStart(3, '0');
+      return `${hours}:${minutes}:${seconds},${milliseconds}`;
     };
 
-    const srtContent = transcript.map((segment, index) => {
+    return transcript.map((segment, index) => {
       const startTimeInSeconds = parseMMSS(segment.timestamp);
       
       let endTimeInSeconds;
       if (index < transcript.length - 1) {
         endTimeInSeconds = parseMMSS(transcript[index + 1].timestamp);
         if (endTimeInSeconds <= startTimeInSeconds) {
-            endTimeInSeconds = startTimeInSeconds + 3; // Add a short duration for overlapping timestamps
+            endTimeInSeconds = startTimeInSeconds + 3; 
         }
       } else {
-        // For the last segment, add a default duration (e.g., 5 seconds)
         endTimeInSeconds = startTimeInSeconds + 5;
       }
 
@@ -86,6 +106,10 @@ const App: React.FC = () => {
       
       return `${index + 1}\n${srtStartTime} --> ${srtEndTime}\n${text}\n`;
     }).join('\n');
+  }, [transcript]);
+
+  const handleDownloadSrt = useCallback(() => {
+    if (!srtContent || !file) return;
 
     const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -100,52 +124,73 @@ const App: React.FC = () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-  }, [transcript, file]);
+  }, [srtContent, file]);
+  
+  const showResetButton = status === 'success' || status === 'error' || status === 'fileSelected';
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col font-sans">
+    <div className="min-h-screen flex flex-col font-sans">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8 flex flex-col items-center">
-        <div className="w-full max-w-3xl bg-slate-800/50 rounded-2xl shadow-2xl shadow-sky-900/20 p-6 md:p-10 border border-slate-700">
+        <div className="w-full max-w-3xl bg-slate-800/50 rounded-2xl shadow-2xl shadow-sky-900/20 p-6 md:p-10 border border-slate-700 relative">
+          
+          {showResetButton && (
+            <button 
+              onClick={handleReset} 
+              className="absolute top-4 right-4 text-slate-400 hover:text-sky-400 transition-colors p-2 rounded-full"
+              aria-label="Start over"
+            >
+              <RefreshCw size={20} />
+            </button>
+          )}
+
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-sky-400">Upload Your Audio</h2>
             <p className="text-slate-400 mt-2">Select an M4A file to transcribe with speaker identification.</p>
           </div>
           
-          <FileUpload onFileSelect={handleFileSelect} disabled={isLoading} />
+          <FileUpload onFileSelect={handleFileSelect} disabled={status === 'loading'} file={file} />
           
-          <div className="mt-8 text-center">
-            <button
-              onClick={handleTranscribe}
-              disabled={!file || isLoading}
-              className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-500 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-slate-400 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-500/50"
-            >
-              {isLoading ? 'Transcribing...' : 'Generate Transcript'}
-            </button>
-          </div>
-
-          {isLoading && (
-            <div className="mt-8 text-center">
-              <Spinner />
-              <p className="text-sky-400 mt-4 animate-pulse">{loadingMessage}</p>
+          {status === 'fileSelected' && (
+            <div className="mt-8 text-center animate-fade-in">
+              <button
+                onClick={handleTranscribe}
+                className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-500 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-500/50"
+              >
+                Generate Transcript
+              </button>
             </div>
           )}
 
-          {error && (
-            <div className="mt-8 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg text-center">
-              <p className="font-semibold">Error</p>
-              <p>{error}</p>
+          {status === 'loading' && (
+            <div className="mt-8 text-center animate-fade-in">
+              <p className="text-sky-400 mb-6 animate-pulse">{loadingMessage}</p>
+              <SkeletonLoader />
             </div>
           )}
 
-          {transcript && !isLoading && (
-             <div className="mt-10">
-                <div className="flex justify-between items-center mb-6 border-b-2 border-slate-700 pb-2">
-                  <h3 className="text-2xl font-bold text-sky-400">Transcription Result</h3>
+          {status === 'error' && (
+            <div className="mt-8 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg text-center animate-fade-in">
+              <div className="flex justify-center items-center gap-2">
+                <AlertTriangle size={20}/>
+                <p className="font-semibold">Transcription Failed</p>
+              </div>
+              <p className="mt-2 text-sm">{error}</p>
+            </div>
+          )}
+
+          {status === 'success' && transcript && (
+             <div className="mt-10 animate-fade-in">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6 border-b-2 border-slate-700 pb-2">
+                  <div>
+                    <h3 className="text-2xl font-bold text-sky-400">Transcription Result</h3>
+                    <p className="text-sm text-slate-400 mt-1">{`Analysis complete. ${transcript.length} segments identified.`}</p>
+                  </div>
                   <button
                     onClick={handleDownloadSrt}
-                    className="px-4 py-2 text-sm bg-slate-700 text-sky-300 font-semibold rounded-lg hover:bg-slate-600/70 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                    className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-slate-700 text-sky-300 font-semibold rounded-lg hover:bg-slate-600/70 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
                   >
+                    <Download size={16} />
                     Download SRT
                   </button>
                 </div>
