@@ -23,7 +23,8 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
-const MAX_FILE_SIZE_MB = 100;
+// 將檔案大小限制設定在 4MB，以符合 Vercel Hobby 方案約 4.5MB 的請求酬載 (payload) 上限。
+const MAX_FILE_SIZE_MB = 4;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export default async (req: VercelRequest, res: VercelResponse) => {
