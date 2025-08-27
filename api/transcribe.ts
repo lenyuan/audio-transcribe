@@ -13,6 +13,17 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
+// Web-standard function to convert ArrayBuffer to Base64
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
+
 export default async (req: VercelRequest, res: VercelResponse) => {
     if (req.method === 'OPTIONS') {
         setCorsHeaders(res);
@@ -40,8 +51,8 @@ export default async (req: VercelRequest, res: VercelResponse) => {
         if (!audioResponse.ok) {
             throw new Error(`Failed to download audio file from blob storage. Status: ${audioResponse.statusText}`);
         }
-        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
-        const base64Audio = audioBuffer.toString('base64');
+        const audioArrayBuffer = await audioResponse.arrayBuffer();
+        const base64Audio = arrayBufferToBase64(audioArrayBuffer);
         const mimeType = audioResponse.headers.get('content-type') || 'audio/m4a';
 
         // Step 2: Call the Gemini API with the file data

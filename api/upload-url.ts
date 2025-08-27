@@ -1,5 +1,4 @@
 import { put } from '@vercel/blob';
-import { NextResponse } from 'next/server';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // This function generates a secure URL for uploading files to Vercel Blob.
@@ -23,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // The token is automatically read from the BLOB_READ_WRITE_TOKEN environment variable on Vercel.
     });
     
-    // Return the secure URL to the frontend.
+    // Return the secure URL to the frontend using the standard Vercel response object.
     return res.status(200).json(blob);
 
   } catch (error) {
