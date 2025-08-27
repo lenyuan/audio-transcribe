@@ -1,38 +1,27 @@
 import { type TranscriptSegment } from '../types';
-import { upload } from '@vercel/blob/client';
 
 export const transcribeAudio = async (
   file: File,
   updateLoadingMessage: (message: string) => void
 ): Promise<TranscriptSegment[]> => {
   try {
-    // Step 1: Sanitize the filename to be URL-safe and unique.
-    // This is critical because Gemini API's fileUri does not support non-ASCII characters.
-    const fileExtension = file.name.split('.').pop();
-    if (!fileExtension) {
-      throw new Error("Could not determine file extension.");
-    }
-    const uniqueFilename = `${crypto.randomUUID()}.${fileExtension}`;
+    updateLoadingMessage('Uploading and processing your audio file...');
 
-    // Step 2: Use the Vercel Blob client helper to handle the upload process
-    // with the new, sanitized filename.
-    updateLoadingMessage('Uploading file to secure storage (this may take a moment)...');
+    const formData = new FormData();
+    formData.append('file', file);
     
-    const blob = await upload(uniqueFilename, file, {
-      access: 'public',
-      handleUploadUrl: '/api/upload-url',
-    });
-
-    // Step 3: Send the URL of the stored file to our transcription endpoint.
-    updateLoadingMessage('File uploaded. Sending to AI for transcription...');
+    // Send the file directly to our transcription endpoint.
+    // The browser will automatically set the correct 'Content-Type' for multipart/form-data.
     const transcribeResponse = await fetch('/api/transcribe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileUrl: blob.url }),
+      body: formData,
     });
 
     if (!transcribeResponse.ok) {
-      const errorData = await transcribeResponse.json();
+      const errorData = await transcribeResponse.json().catch(() => ({ 
+        error: 'Server returned an invalid error response.', 
+        details: `Request failed with status ${transcribeResponse.status}` 
+      }));
       throw new Error(errorData.details || errorData.error || `Request failed with status ${transcribeResponse.status}`);
     }
     

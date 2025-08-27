@@ -1,14 +1,18 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import formidable from 'formidable';
+import fs from 'fs';
+import path from 'path';
 
 export const config = {
-    maxDuration: 60,
-    runtime: 'nodejs',
+  api: { bodyParser: false },
+  maxDuration: 300,
+  runtime: 'nodejs',
 };
 
-const MAX_FILE_SIZE_MB = 100;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const MAX_INLINE_MB = 100;
+const MAX_INLINE_BYTES = MAX_INLINE_MB * 1024 * 1024;
 
 const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -16,7 +20,7 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
-export default async (req: VercelRequest, res: VercelResponse) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') {
         setCorsHeaders(res);
         return res.status(204).end();
@@ -26,11 +30,6 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
-    
-    const { fileUrl } = req.body;
-    if (!fileUrl) {
-        return res.status(400).json({ error: 'Missing fileUrl in request body' });
-    }
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
@@ -38,47 +37,46 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
-        // Step 1: Pre-emptive size check to avoid timeouts.
-        const headResponse = await fetch(fileUrl, { method: 'HEAD' });
-        if (!headResponse.ok) {
-            throw new Error(`Failed to get file metadata: ${headResponse.statusText}`);
-        }
-        
-        const contentLength = headResponse.headers.get('content-length');
-        if (!contentLength || parseInt(contentLength, 10) > MAX_FILE_SIZE_BYTES) {
-             return res.status(413).json({ 
-                error: 'File is too large to process.', 
-                details: `The file size exceeds the server limit of ${MAX_FILE_SIZE_MB}MB.` 
+        const form = formidable({ 
+            multiples: false, 
+            maxFileSize: 2 * 1024 * 1024 * 1024, // 2GB limit
+            keepExtensions: true,
+        });
+
+        const files = await new Promise<formidable.Files>((resolve, reject) => {
+            form.parse(req, (err, fields, files) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(files);
+                }
             });
-        }
-        
-        // Step 2: Fetch the audio file from the Vercel Blob URL.
-        const audioResponse = await fetch(fileUrl);
-        if (!audioResponse.ok) {
-            throw new Error(`Failed to download audio file from storage: ${audioResponse.statusText}`);
+        });
+
+        const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
+
+        if (!uploadedFile) {
+            return res.status(400).json({ error: 'No file provided in the request.' });
         }
 
-        // Step 3: Convert the audio file to a Base64 string using the high-performance Node.js Buffer API.
-        const audioArrayBuffer = await audioResponse.arrayBuffer();
-        const audioBase64 = Buffer.from(audioArrayBuffer).toString('base64');
+        const filePath = uploadedFile.filepath;
+        const mimeType = uploadedFile.mimetype || 'audio/m4a';
+        const fileSizeBytes = uploadedFile.size;
+
+        if (!filePath || !fileSizeBytes) {
+            return res.status(400).json({ error: 'File path or size is missing after upload.' });
+        }
         
-        // Step 4: Send the Base64 data to Gemini using `inlineData`.
         const ai = new GoogleGenAI({ apiKey });
-        const audioPart = {
-            inlineData: {
-                mimeType: 'audio/m4a',
-                data: audioBase64
-            }
-        };
 
-        const textPart = {
-            text: `You are an expert audio transcription service.
-      Transcribe the following audio file.
+        // FIX: Refactored prompt to use systemInstruction and a separate user prompt for better practice.
+        const systemInstruction = `You are an expert audio transcription service.
       For each distinct speaker, assign a label like 'Speaker 1', 'Speaker 2', etc.
       Provide a precise timestamp in the format MM:SS for the beginning of each speech segment.
       Ensure the final output strictly adheres to the provided JSON schema.
-      If the audio is silent or contains no discernible speech, return an empty array.`,
-        };
+      If the audio is silent or contains no discernible speech, return an empty array.`;
+
+        const userPrompt = "Transcribe the following audio file.";
 
         const schema = {
             type: Type.ARRAY,
@@ -93,18 +91,71 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             }
         };
 
-        // Step 5: Call Gemini API.
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [audioPart, textPart] },
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: schema
+        const genAIConfig = {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: schema,
+        };
+        
+        let response;
+        
+        if (fileSizeBytes < MAX_INLINE_BYTES) {
+            // Small file path (< 100MB): use inlineData
+            const fileBuffer = fs.readFileSync(filePath);
+            const base64Audio = fileBuffer.toString('base64');
+            const audioPart = {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: base64Audio,
+                },
+            };
+            const textPart = { text: userPrompt };
+
+            response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: { parts: [audioPart, textPart] },
+                config: genAIConfig,
+            });
+        } else {
+            // Large file path (>= 100MB): use Files API
+            console.log(`Uploading large file (${(fileSizeBytes / (1024*1024)).toFixed(2)} MB) to Gemini Files API...`);
+            
+            // FIX: Moved `displayName` into the `config` object to match `UploadFileParameters` type.
+            const uploadResult = await ai.files.upload({
+                file: filePath,
+                config: {
+                    mimeType: mimeType,
+                    displayName: path.basename(filePath),
+                },
+            });
+
+            if (!uploadResult?.uri) {
+                throw new Error("File upload to Gemini API failed: No URI returned.");
             }
-        });
+            
+            console.log(`File uploaded. URI: ${uploadResult.uri}. Transcribing...`);
+            
+            const audioPart = {
+                fileData: {
+                    mimeType: mimeType,
+                    fileUri: uploadResult.uri,
+                },
+            };
+            const textPart = { text: userPrompt };
+
+            response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: { parts: [audioPart, textPart] },
+                config: genAIConfig,
+            });
+        }
         
         const jsonText = response.text.trim();
         const parsedJson = JSON.parse(jsonText) as TranscriptSegment[];
+
+        if (!parsedJson || (Array.isArray(parsedJson) && parsedJson.length === 0)) {
+           throw new Error("Transcription successful, but the audio appears to be silent or contains no discernible speech.");
+        }
         
         return res.status(200).json(parsedJson);
 
@@ -113,4 +164,4 @@ export default async (req: VercelRequest, res: VercelResponse) => {
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return res.status(500).json({ error: "Failed to transcribe audio.", details: errorMessage });
     }
-};
+}

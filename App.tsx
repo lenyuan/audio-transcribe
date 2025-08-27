@@ -10,7 +10,7 @@ import { RefreshCw, Download, AlertTriangle } from 'lucide-react';
 
 
 type Status = 'initial' | 'fileSelected' | 'loading' | 'success' | 'error';
-const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_MB = 500;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const App: React.FC = () => {
@@ -82,8 +82,17 @@ const App: React.FC = () => {
 
     const parseMMSS = (timestamp: string): number => {
       const parts = timestamp.split(':').map(Number);
-      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
-      return parts[0] * 60 + parts[1];
+      if (parts.length < 2 || parts.some(isNaN)) return 0;
+      let seconds = 0;
+      if (parts.length === 3) { // HH:MM:SS
+        seconds += parts[0] * 3600;
+        seconds += parts[1] * 60;
+        seconds += parts[2];
+      } else { // MM:SS
+        seconds += parts[0] * 60;
+        seconds += parts[1];
+      }
+      return seconds;
     };
 
     const formatSrtTime = (totalSeconds: number): string => {
