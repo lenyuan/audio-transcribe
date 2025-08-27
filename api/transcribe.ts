@@ -3,7 +3,7 @@ import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = {
-    maxDuration: 60,
+    maxDuration: 60, // Keep at 60s as a safeguard, but execution will be much faster.
     runtime: 'nodejs',
 };
 
@@ -11,17 +11,6 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-};
-
-// Web-standard function to convert ArrayBuffer to Base64
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
 };
 
 export default async (req: VercelRequest, res: VercelResponse) => {
@@ -46,18 +35,16 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
-        // Step 1: Download the audio file from the provided URL (from Vercel Blob)
-        const audioResponse = await fetch(fileUrl);
-        if (!audioResponse.ok) {
-            throw new Error(`Failed to download audio file from blob storage. Status: ${audioResponse.statusText}`);
-        }
-        const audioArrayBuffer = await audioResponse.arrayBuffer();
-        const base64Audio = arrayBufferToBase64(audioArrayBuffer);
-        const mimeType = audioResponse.headers.get('content-type') || 'audio/m4a';
-
-        // Step 2: Call the Gemini API with the file data
+        // Step 1: Instead of downloading, pass the public URL directly to Gemini.
+        // This is highly efficient and avoids timeouts.
         const ai = new GoogleGenAI({ apiKey });
-        const audioPart = { inlineData: { mimeType, data: base64Audio } };
+        const audioPart = {
+            fileData: {
+                mimeType: 'audio/m4a',
+                fileUri: fileUrl
+            }
+        };
+
         const textPart = {
             text: `You are an expert audio transcription service.
       Transcribe the following audio file.
@@ -80,6 +67,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             }
         };
 
+        // Step 2: Call Gemini API. This will be very fast as we are not uploading data.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [audioPart, textPart] },
