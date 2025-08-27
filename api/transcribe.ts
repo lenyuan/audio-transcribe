@@ -7,11 +7,25 @@ export const config = {
     runtime: 'nodejs',
 };
 
+const MAX_FILE_SIZE_MB = 25;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
+
+const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
+
 
 export default async (req: VercelRequest, res: VercelResponse) => {
     if (req.method === 'OPTIONS') {
@@ -35,17 +49,31 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
-        // Step 1: Fetch the audio file from the Vercel Blob URL.
+        // Step 1: Pre-emptive size check to avoid timeouts.
+        const headResponse = await fetch(fileUrl, { method: 'HEAD' });
+        if (!headResponse.ok) {
+            throw new Error(`Failed to get file metadata: ${headResponse.statusText}`);
+        }
+        
+        const contentLength = headResponse.headers.get('content-length');
+        if (!contentLength || parseInt(contentLength, 10) > MAX_FILE_SIZE_BYTES) {
+             return res.status(413).json({ 
+                error: 'File is too large to process.', 
+                details: `The file size exceeds the server limit of ${MAX_FILE_SIZE_MB}MB.` 
+            });
+        }
+        
+        // Step 2: Fetch the audio file from the Vercel Blob URL.
         const audioResponse = await fetch(fileUrl);
         if (!audioResponse.ok) {
             throw new Error(`Failed to download audio file from storage: ${audioResponse.statusText}`);
         }
 
-        // Step 2: Convert the audio file to a Base64 string.
+        // Step 3: Convert the audio file to a Base64 string.
         const audioArrayBuffer = await audioResponse.arrayBuffer();
-        const audioBase64 = Buffer.from(audioArrayBuffer).toString('base64');
+        const audioBase64 = arrayBufferToBase64(audioArrayBuffer);
         
-        // Step 3: Send the Base64 data to Gemini using `inlineData`.
+        // Step 4: Send the Base64 data to Gemini using `inlineData`.
         const ai = new GoogleGenAI({ apiKey });
         const audioPart = {
             inlineData: {
@@ -76,7 +104,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             }
         };
 
-        // Step 4: Call Gemini API.
+        // Step 5: Call Gemini API.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [audioPart, textPart] },

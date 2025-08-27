@@ -10,7 +10,7 @@ import { RefreshCw, Download, AlertTriangle } from 'lucide-react';
 
 
 type Status = 'initial' | 'fileSelected' | 'loading' | 'success' | 'error';
-const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_MB = 25;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const App: React.FC = () => {
@@ -153,7 +153,7 @@ const App: React.FC = () => {
 
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-sky-400">Upload Your Audio</h2>
-            <p className="text-slate-400 mt-2">Select an M4A file (up to 100MB) to transcribe with speaker identification.</p>
+            <p className="text-slate-400 mt-2">Select an M4A file (up to {MAX_FILE_SIZE_MB}MB) to transcribe with speaker identification.</p>
           </div>
           
           <FileUpload onFileSelect={handleFileSelect} disabled={status === 'loading'} file={file} />
