@@ -23,6 +23,9 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
+const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 export default async (req: VercelRequest, res: VercelResponse) => {
     // 處理預檢 CORS 請求
     if (req.method === 'OPTIONS') {
@@ -45,7 +48,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     try {
         // 使用 formidable 解析傳入的表單數據 (包含檔案)
         const form = formidable({});
-        const [fields, files] = await form.parse(req);
+        const [, files] = await form.parse(req);
         
         const fileArray = files.file;
         if (!fileArray || fileArray.length === 0) {
@@ -56,6 +59,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
 
         if (!file.filepath) {
             return res.status(400).json({ error: 'File path is missing after upload' });
+        }
+
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            return res.status(413).json({ 
+                error: 'File too large.', 
+                details: `The provided file exceeds the ${MAX_FILE_SIZE_MB}MB limit for this service.` 
+            });
         }
 
         // 將 formidable 暫存的檔案讀取為 Buffer，然後轉為 Base64
