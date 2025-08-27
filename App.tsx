@@ -50,6 +50,58 @@ const App: React.FC = () => {
     }
   }, [file]);
 
+  const handleDownloadSrt = useCallback(() => {
+    if (!transcript || !file) return;
+
+    const parseMMSS = (timestamp: string): number => {
+      const parts = timestamp.split(':').map(Number);
+      if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
+      return parts[0] * 60 + parts[1];
+    };
+
+    const formatSrtTime = (totalSeconds: number): string => {
+      const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+      const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+      const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+      return `${hours}:${minutes}:${seconds},000`;
+    };
+
+    const srtContent = transcript.map((segment, index) => {
+      const startTimeInSeconds = parseMMSS(segment.timestamp);
+      
+      let endTimeInSeconds;
+      if (index < transcript.length - 1) {
+        endTimeInSeconds = parseMMSS(transcript[index + 1].timestamp);
+        if (endTimeInSeconds <= startTimeInSeconds) {
+            endTimeInSeconds = startTimeInSeconds + 3; // Add a short duration for overlapping timestamps
+        }
+      } else {
+        // For the last segment, add a default duration (e.g., 5 seconds)
+        endTimeInSeconds = startTimeInSeconds + 5;
+      }
+
+      const srtStartTime = formatSrtTime(startTimeInSeconds);
+      const srtEndTime = formatSrtTime(endTimeInSeconds);
+      const text = `${segment.speaker}: ${segment.transcript}`;
+      
+      return `${index + 1}\n${srtStartTime} --> ${srtEndTime}\n${text}\n`;
+    }).join('\n');
+
+    const blob = new Blob([srtContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    const srtFilename = (file.name.substring(0, file.name.lastIndexOf('.')) || file.name) + '.srt';
+    
+    link.href = url;
+    link.download = srtFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+  }, [transcript, file]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col font-sans">
       <Header />
@@ -88,7 +140,15 @@ const App: React.FC = () => {
 
           {transcript && !isLoading && (
              <div className="mt-10">
-                <h3 className="text-2xl font-bold text-sky-400 mb-6 border-b-2 border-slate-700 pb-2">Transcription Result</h3>
+                <div className="flex justify-between items-center mb-6 border-b-2 border-slate-700 pb-2">
+                  <h3 className="text-2xl font-bold text-sky-400">Transcription Result</h3>
+                  <button
+                    onClick={handleDownloadSrt}
+                    className="px-4 py-2 text-sm bg-slate-700 text-sky-300 font-semibold rounded-lg hover:bg-slate-600/70 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                  >
+                    Download SRT
+                  </button>
+                </div>
                 <TranscriptDisplay segments={transcript} />
              </div>
           )}

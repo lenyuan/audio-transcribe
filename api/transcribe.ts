@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { type TranscriptSegment } from '../types';
 
@@ -48,7 +47,14 @@ export default async (req: Request) => {
 
     // Convert file to Base64
     const buffer = await file.arrayBuffer();
-    const base64Audio = Buffer.from(buffer).toString('base64');
+    // FIX: The `Buffer` object is a Node.js API and is not available in all serverless runtimes (e.g., Vercel Edge).
+    // Replaced with a web-standard method to convert an ArrayBuffer to a Base64 string.
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    const base64Audio = btoa(binary);
     
     // --- Gemini API Call Logic ---
     const ai = new GoogleGenAI({ apiKey });
