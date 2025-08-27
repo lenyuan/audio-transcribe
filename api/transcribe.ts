@@ -35,8 +35,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!apiKey) {
         return res.status(500).json({ error: "API_KEY environment variable is not set." });
     }
+    
+    console.time('totalRequestTime');
 
     try {
+        console.time('formParseTime');
         const form = formidable({ 
             multiples: false, 
             maxFileSize: 2 * 1024 * 1024 * 1024, // 2GB limit
@@ -52,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             });
         });
+        console.timeEnd('formParseTime');
 
         const uploadedFile = Array.isArray(files.file) ? files.file[0] : files.file;
 
@@ -69,7 +73,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         
         const ai = new GoogleGenAI({ apiKey });
 
-        // FIX: Refactored prompt to use systemInstruction and a separate user prompt for better practice.
         const systemInstruction = `You are an expert audio transcription service.
       For each distinct speaker, assign a label like 'Speaker 1', 'Speaker 2', etc.
       Provide a precise timestamp in the format MM:SS for the beginning of each speech segment.
@@ -100,7 +103,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let response;
         
         if (fileSizeBytes < MAX_INLINE_BYTES) {
-            // Small file path (< 100MB): use inlineData
+            console.log(`Processing small file (${(fileSizeBytes / (1024*1024)).toFixed(2)} MB) with inlineData...`);
+            console.time('smallFileProcessingTime');
             const fileBuffer = fs.readFileSync(filePath);
             const base64Audio = fileBuffer.toString('base64');
             const audioPart = {
@@ -116,11 +120,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 contents: { parts: [audioPart, textPart] },
                 config: genAIConfig,
             });
+            console.timeEnd('smallFileProcessingTime');
         } else {
-            // Large file path (>= 100MB): use Files API
-            console.log(`Uploading large file (${(fileSizeBytes / (1024*1024)).toFixed(2)} MB) to Gemini Files API...`);
+            console.log(`Processing large file (${(fileSizeBytes / (1024*1024)).toFixed(2)} MB) with Files API...`);
             
-            // FIX: Moved `displayName` into the `config` object to match `UploadFileParameters` type.
+            console.time('geminiFileUploadTime');
             const uploadResult = await ai.files.upload({
                 file: filePath,
                 config: {
@@ -128,12 +132,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     displayName: path.basename(filePath),
                 },
             });
+            console.timeEnd('geminiFileUploadTime');
 
             if (!uploadResult?.uri) {
                 throw new Error("File upload to Gemini API failed: No URI returned.");
             }
             
-            console.log(`File uploaded. URI: ${uploadResult.uri}. Transcribing...`);
+            console.log(`File uploaded successfully. URI: ${uploadResult.uri}. Starting transcription...`);
             
             const audioPart = {
                 fileData: {
@@ -142,12 +147,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
             };
             const textPart = { text: userPrompt };
-
+            
+            console.time('geminiTranscriptionTime');
             response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: { parts: [audioPart, textPart] },
                 config: genAIConfig,
             });
+            console.timeEnd('geminiTranscriptionTime');
         }
         
         const jsonText = response.text.trim();
@@ -157,9 +164,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
            throw new Error("Transcription successful, but the audio appears to be silent or contains no discernible speech.");
         }
         
+        console.timeEnd('totalRequestTime');
         return res.status(200).json(parsedJson);
 
     } catch (error) {
+        console.timeEnd('totalRequestTime');
         console.error("Error in serverless function:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         return res.status(500).json({ error: "Failed to transcribe audio.", details: errorMessage });
