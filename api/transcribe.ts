@@ -4,17 +4,22 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import formidable from 'formidable';
 import fs from 'fs';
 
-// 告知 Vercel 禁用其預設的 body parser，以便 formidable 可以正確處理請求流
+// 告知 Vercel 如何設定此函式：
+// 1. 禁用其預設的 body parser，以便 formidable 可以正確處理請求流
+// 2. 將最大執行時間設定為 60 秒，以處理較長的音訊檔
+// 3. 強制使用 Node.js 環境
 export const config = {
     api: {
         bodyParser: false,
     },
+    maxDuration: 60,
+    runtime: 'nodejs18.x',
 };
 
 // 設定 CORS 標頭的輔助函式
 const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
