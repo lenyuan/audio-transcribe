@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { formidable } from 'formidable';
+import formidable from 'formidable';
 import fs from 'fs';
 
 // 告知 Vercel 禁用其預設的 body parser，以便 formidable 可以正確處理請求流
