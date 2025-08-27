@@ -1,0 +1,5 @@
+{
+  "name": "課程部語音轉錄神器",
+  "description": "An intelligent tool to transcribe M4A audio files into text, complete with speaker identification and timestamps, powered by Gemini.",
+  "requestFramePermissions": []
+}
