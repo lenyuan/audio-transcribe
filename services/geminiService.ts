@@ -6,11 +6,19 @@ export const transcribeAudio = async (
   updateLoadingMessage: (message: string) => void
 ): Promise<TranscriptSegment[]> => {
   try {
-    // Step 1 & 2: Use the Vercel Blob client helper to handle the upload process.
-    // It automatically requests the secure URL and uploads the file.
+    // Step 1: Sanitize the filename to be URL-safe and unique.
+    // This is critical because Gemini API's fileUri does not support non-ASCII characters.
+    const fileExtension = file.name.split('.').pop();
+    if (!fileExtension) {
+      throw new Error("Could not determine file extension.");
+    }
+    const uniqueFilename = `${crypto.randomUUID()}.${fileExtension}`;
+
+    // Step 2: Use the Vercel Blob client helper to handle the upload process
+    // with the new, sanitized filename.
     updateLoadingMessage('Uploading file to secure storage (this may take a moment)...');
     
-    const blob = await upload(file.name, file, {
+    const blob = await upload(uniqueFilename, file, {
       access: 'public',
       handleUploadUrl: '/api/upload-url',
     });
