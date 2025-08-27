@@ -10,6 +10,8 @@ import { RefreshCw, Download, AlertTriangle } from 'lucide-react';
 
 
 type Status = 'initial' | 'fileSelected' | 'loading' | 'success' | 'error';
+const MAX_FILE_SIZE_MB = 100;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const App: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -20,13 +22,19 @@ const App: React.FC = () => {
 
   const handleFileSelect = (selectedFile: File | null) => {
     if (selectedFile) {
-        setFile(selectedFile);
-        setStatus('fileSelected');
-        setTranscript(null);
-        setError(null);
-    } else {
+      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+        setError(`File is too large. The maximum allowed size is ${MAX_FILE_SIZE_MB}MB.`);
+        setStatus('error');
         setFile(null);
-        setStatus('initial');
+        return;
+      }
+      setFile(selectedFile);
+      setStatus('fileSelected');
+      setTranscript(null);
+      setError(null);
+    } else {
+      setFile(null);
+      setStatus('initial');
     }
   };
 
@@ -51,7 +59,6 @@ const App: React.FC = () => {
     setTranscript(null);
 
     try {
-      setLoadingMessage('Sending to AI for transcription...');
       const result = await transcribeAudio(file, (message) => setLoadingMessage(message));
       
       if (result && result.length > 0) {
@@ -146,7 +153,7 @@ const App: React.FC = () => {
 
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-bold text-sky-400">Upload Your Audio</h2>
-            <p className="text-slate-400 mt-2">Select an M4A file to transcribe with speaker identification.</p>
+            <p className="text-slate-400 mt-2">Select an M4A file (up to 100MB) to transcribe with speaker identification.</p>
           </div>
           
           <FileUpload onFileSelect={handleFileSelect} disabled={status === 'loading'} file={file} />
@@ -173,7 +180,7 @@ const App: React.FC = () => {
             <div className="mt-8 p-4 bg-red-900/50 border border-red-700 text-red-300 rounded-lg text-center animate-fade-in">
               <div className="flex justify-center items-center gap-2">
                 <AlertTriangle size={20}/>
-                <p className="font-semibold">Transcription Failed</p>
+                <p className="font-semibold">Operation Failed</p>
               </div>
               <p className="mt-2 text-sm">{error}</p>
             </div>

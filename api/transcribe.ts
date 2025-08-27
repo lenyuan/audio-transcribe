@@ -1,44 +1,32 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import formidable from 'formidable';
-import fs from 'fs';
 
-// 告知 Vercel 如何設定此函式：
-// 1. 禁用其預設的 body parser，以便 formidable 可以正確處理請求流
-// 2. 將最大執行時間設定為 60 秒，以處理較長的音訊檔
-// 3. 強制使用 Node.js 環境 (使用 Vercel 指定的有效名稱)
 export const config = {
-    api: {
-        bodyParser: false,
-    },
     maxDuration: 60,
     runtime: 'nodejs',
 };
 
-// 設定 CORS 標頭的輔助函式
 const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
 
-// 將檔案大小限制設定在 4MB，以符合 Vercel Hobby 方案約 4.5MB 的請求酬載 (payload) 上限。
-const MAX_FILE_SIZE_MB = 4;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-
 export default async (req: VercelRequest, res: VercelResponse) => {
-    // 處理預檢 CORS 請求
     if (req.method === 'OPTIONS') {
         setCorsHeaders(res);
         return res.status(204).end();
     }
-    
-    // 為實際請求設定 CORS 標頭
     setCorsHeaders(res);
 
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+    
+    const { fileUrl } = req.body;
+    if (!fileUrl) {
+        return res.status(400).json({ error: 'Missing fileUrl in request body' });
     }
 
     const apiKey = process.env.API_KEY;
@@ -47,43 +35,18 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
-        // 使用 formidable 解析傳入的表單數據 (包含檔案)
-        const form = formidable({});
-        const [, files] = await form.parse(req);
-        
-        const fileArray = files.file;
-        if (!fileArray || fileArray.length === 0) {
-            return res.status(400).json({ error: 'No file provided in the request' });
+        // Step 1: Download the audio file from the provided URL (from Vercel Blob)
+        const audioResponse = await fetch(fileUrl);
+        if (!audioResponse.ok) {
+            throw new Error(`Failed to download audio file from blob storage. Status: ${audioResponse.statusText}`);
         }
-        
-        const file = fileArray[0];
+        const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
+        const base64Audio = audioBuffer.toString('base64');
+        const mimeType = audioResponse.headers.get('content-type') || 'audio/m4a';
 
-        if (!file.filepath) {
-            return res.status(400).json({ error: 'File path is missing after upload' });
-        }
-
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-            return res.status(413).json({ 
-                error: 'File too large.', 
-                details: `The provided file exceeds the ${MAX_FILE_SIZE_MB}MB limit for this service.` 
-            });
-        }
-
-        // 將 formidable 暫存的檔案讀取為 Buffer，然後轉為 Base64
-        const fileBuffer = fs.readFileSync(file.filepath);
-        const base64Audio = fileBuffer.toString('base64');
-        const mimeType = file.mimetype || 'audio/m4a';
-        
-        // --- Gemini API 呼叫邏輯 ---
+        // Step 2: Call the Gemini API with the file data
         const ai = new GoogleGenAI({ apiKey });
-
-        const audioPart = {
-            inlineData: {
-                mimeType: mimeType,
-                data: base64Audio,
-            },
-        };
-
+        const audioPart = { inlineData: { mimeType, data: base64Audio } };
         const textPart = {
             text: `You are an expert audio transcription service.
       Transcribe the following audio file.
