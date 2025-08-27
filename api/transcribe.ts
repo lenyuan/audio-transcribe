@@ -7,7 +7,7 @@ export const config = {
     runtime: 'nodejs',
 };
 
-const MAX_FILE_SIZE_MB = 25;
+const MAX_FILE_SIZE_MB = 100;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const setCorsHeaders = (res: VercelResponse) => {
@@ -15,17 +15,6 @@ const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 };
-
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-};
-
 
 export default async (req: VercelRequest, res: VercelResponse) => {
     if (req.method === 'OPTIONS') {
@@ -69,9 +58,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             throw new Error(`Failed to download audio file from storage: ${audioResponse.statusText}`);
         }
 
-        // Step 3: Convert the audio file to a Base64 string.
+        // Step 3: Convert the audio file to a Base64 string using the high-performance Node.js Buffer API.
         const audioArrayBuffer = await audioResponse.arrayBuffer();
-        const audioBase64 = arrayBufferToBase64(audioArrayBuffer);
+        const audioBase64 = Buffer.from(audioArrayBuffer).toString('base64');
         
         // Step 4: Send the Base64 data to Gemini using `inlineData`.
         const ai = new GoogleGenAI({ apiKey });
