@@ -1,13 +1,29 @@
 {
-  "name": "gemini-transcriber-backend",
-  "version": "1.0.0",
+  "name": "gemini-audio-transcriber",
   "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
-    "formidable": "^3.5.1"
+    "formidable": "^3.5.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/node": "^18.11.18",
+    "@types/formidable": "^3.4.5",
+    "@types/node": "^18.19.33",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
     "@vercel/node": "^3.0.0",
-    "typescript": "^5.0.0"
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   }
 }

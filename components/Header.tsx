@@ -12,7 +12,7 @@ export const Header: React.FC = () => {
             <line x1="8" y1="23" x2="16" y2="23"></line>
         </svg>
         <h1 className="text-xl font-bold text-white tracking-wider">
-          Audio Transcriber <span className="text-sky-400">AI</span>
+          課程部語音轉錄神器
         </h1>
       </div>
     </header>
