@@ -3,7 +3,7 @@ import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 export const config = {
-    maxDuration: 60, // Keep at 60s as a safeguard, but execution will be much faster.
+    maxDuration: 60,
     runtime: 'nodejs',
 };
 
@@ -35,13 +35,22 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
-        // Step 1: Instead of downloading, pass the public URL directly to Gemini.
-        // This is highly efficient and avoids timeouts.
+        // Step 1: Fetch the audio file from the Vercel Blob URL.
+        const audioResponse = await fetch(fileUrl);
+        if (!audioResponse.ok) {
+            throw new Error(`Failed to download audio file from storage: ${audioResponse.statusText}`);
+        }
+
+        // Step 2: Convert the audio file to a Base64 string.
+        const audioArrayBuffer = await audioResponse.arrayBuffer();
+        const audioBase64 = Buffer.from(audioArrayBuffer).toString('base64');
+        
+        // Step 3: Send the Base64 data to Gemini using `inlineData`.
         const ai = new GoogleGenAI({ apiKey });
         const audioPart = {
-            fileData: {
+            inlineData: {
                 mimeType: 'audio/m4a',
-                fileUri: fileUrl
+                data: audioBase64
             }
         };
 
@@ -67,7 +76,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             }
         };
 
-        // Step 2: Call Gemini API. This will be very fast as we are not uploading data.
+        // Step 4: Call Gemini API.
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [audioPart, textPart] },
@@ -76,7 +85,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
                 responseSchema: schema
             }
         });
-
+        
         const jsonText = response.text.trim();
         const parsedJson = JSON.parse(jsonText) as TranscriptSegment[];
         
