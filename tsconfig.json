@@ -19,6 +19,6 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["components", "services", "utils", "types.ts", "App.tsx", "index.tsx"],
+  "include": ["components", "services", "utils", "types.ts", "App.tsx", "index.tsx", "vite.config.ts"],
   "exclude": ["node_modules", "api"]
 }

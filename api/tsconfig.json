@@ -1,14 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "node",
     "lib": ["ESNext"],
+    "target": "ESNext",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "noEmit": false,
+    "outDir": "../.vercel/output/functions/api"
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]

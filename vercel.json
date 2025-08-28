@@ -1,8 +1,7 @@
 {
   "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs22.x",
-      "includeFiles": "node_modules/@vercel/blob/**"
+    "api/**/*.js": {
+      "runtime": "nodejs22.x"
     }
   },
   "rewrites": [
