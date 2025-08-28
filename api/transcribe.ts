@@ -8,7 +8,7 @@ import path from 'path';
 export const config = {
   api: { bodyParser: false },
   maxDuration: 300,
-  runtime: 'nodejs',
+  runtime: 'nodejs18.x',
 };
 
 const MAX_INLINE_MB = 100;
