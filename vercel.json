@@ -2,8 +2,7 @@
   "functions": {
     "api/**/*.ts": {
       "runtime": "nodejs22.x",
-      "includeFiles": "node_modules/@vercel/blob/**",
-      "tsconfig": "tsconfig.api.json"
+      "includeFiles": "node_modules/@vercel/blob/**"
     }
   },
   "rewrites": [

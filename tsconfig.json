@@ -20,6 +20,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["components", "services", "utils", "types.ts", "App.tsx", "index.tsx"],
-  "exclude": ["node_modules", "api"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": ["node_modules", "api"]
 }
