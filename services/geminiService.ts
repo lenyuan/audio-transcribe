@@ -1,20 +1,28 @@
 import { type TranscriptSegment } from '../types';
+import { upload } from '@vercel/blob/client';
 
 export const transcribeAudio = async (
   file: File,
   updateLoadingMessage: (message: string) => void
 ): Promise<TranscriptSegment[]> => {
   try {
-    updateLoadingMessage('Uploading and processing your audio file...');
+    updateLoadingMessage('Uploading your audio file securely...');
 
-    const formData = new FormData();
-    formData.append('file', file);
+    const newBlob = await upload(file.name, file, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+    });
+
+    if (!newBlob || !newBlob.url) {
+      throw new Error('File upload to Vercel Blob failed.');
+    }
     
-    // Send the file directly to our transcription endpoint.
-    // The browser will automatically set the correct 'Content-Type' for multipart/form-data.
+    updateLoadingMessage('File uploaded. Starting transcription...');
+    
     const transcribeResponse = await fetch('/api/transcribe', {
       method: 'POST',
-      body: formData,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blobUrl: newBlob.url }),
     });
 
     if (!transcribeResponse.ok) {
