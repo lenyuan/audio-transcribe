@@ -1,11 +1,4 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "nodejs22.x",
-      "maxDuration": 300,
-      "includeFiles": "node_modules/@vercel/blob/**"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/:path*",
