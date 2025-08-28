@@ -1,9 +1,12 @@
 {
-      "$schema": "https://openapi.vercel.sh/vercel.json",
-      "functions": {
-        "api/**/*.ts": {
-          "runtime": "nodejs22.x",
-          "maxDuration": 300
-        }
-      }
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/:path*",
+      "destination": "/index.html"
     }
+  ]
+}
