@@ -5,6 +5,7 @@ import { TranscriptDisplay, SkeletonLoader } from './components/TranscriptDispla
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { transcribeAudio } from './services/geminiService';
+import { generateSrtContent } from './utils/srt';
 import { type TranscriptSegment } from './types';
 import { RefreshCw, Download, AlertTriangle } from 'lucide-react';
 
@@ -79,49 +80,7 @@ const App: React.FC = () => {
 
   const srtContent = useMemo(() => {
     if (!transcript) return '';
-
-    const parseMMSS = (timestamp: string): number => {
-      const parts = timestamp.split(':').map(Number);
-      if (parts.length < 2 || parts.some(isNaN)) return 0;
-      let seconds = 0;
-      if (parts.length === 3) { // HH:MM:SS
-        seconds += parts[0] * 3600;
-        seconds += parts[1] * 60;
-        seconds += parts[2];
-      } else { // MM:SS
-        seconds += parts[0] * 60;
-        seconds += parts[1];
-      }
-      return seconds;
-    };
-
-    const formatSrtTime = (totalSeconds: number): string => {
-      const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-      const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-      const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
-      const milliseconds = (Math.round((totalSeconds % 1) * 1000)).toString().padStart(3, '0');
-      return `${hours}:${minutes}:${seconds},${milliseconds}`;
-    };
-
-    return transcript.map((segment, index) => {
-      const startTimeInSeconds = parseMMSS(segment.timestamp);
-      
-      let endTimeInSeconds;
-      if (index < transcript.length - 1) {
-        endTimeInSeconds = parseMMSS(transcript[index + 1].timestamp);
-        if (endTimeInSeconds <= startTimeInSeconds) {
-            endTimeInSeconds = startTimeInSeconds + 3; 
-        }
-      } else {
-        endTimeInSeconds = startTimeInSeconds + 5;
-      }
-
-      const srtStartTime = formatSrtTime(startTimeInSeconds);
-      const srtEndTime = formatSrtTime(endTimeInSeconds);
-      const text = `${segment.speaker}: ${segment.transcript}`;
-      
-      return `${index + 1}\n${srtStartTime} --> ${srtEndTime}\n${text}\n`;
-    }).join('\n');
+    return generateSrtContent(transcript);
   }, [transcript]);
 
   const handleDownloadSrt = useCallback(() => {
@@ -155,6 +114,7 @@ const App: React.FC = () => {
               onClick={handleReset} 
               className="absolute top-4 right-4 text-slate-400 hover:text-sky-400 transition-colors p-2 rounded-full"
               aria-label="Start over"
+              type="button"
             >
               <RefreshCw size={20} />
             </button>
@@ -172,6 +132,7 @@ const App: React.FC = () => {
               <button
                 onClick={handleTranscribe}
                 className="px-8 py-3 bg-sky-600 text-white font-bold rounded-lg hover:bg-sky-500 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-sky-500/50"
+                type="button"
               >
                 Generate Transcript
               </button>
@@ -205,6 +166,7 @@ const App: React.FC = () => {
                   <button
                     onClick={handleDownloadSrt}
                     className="flex items-center justify-center gap-2 px-4 py-2 text-sm bg-slate-700 text-sky-300 font-semibold rounded-lg hover:bg-slate-600/70 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                    type="button"
                   >
                     <Download size={16} />
                     Download SRT
