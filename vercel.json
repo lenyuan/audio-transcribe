@@ -1,12 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/*.ts": {
-      "runtime": "nodejs",
-      "maxDuration": 300
-    }
-  },
-  "routes": [
-    { "src": "/api/transcribe", "dest": "/api/transcribe.ts" }
-  ]
+    "api/**/*.ts": { "runtime": "nodejs", "maxDuration": 300 },
+    "api/**/*.js": { "runtime": "nodejs", "maxDuration": 300 }
+  }
 }
