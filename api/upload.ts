@@ -20,7 +20,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }),
         };
       },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
+      onUploadCompleted: async ({ blob, tokenPayload }: { 
+        blob: {
+          url: string;
+          pathname: string;
+          contentType: string;
+          contentDisposition: string;
+        }, 
+        tokenPayload: string | null | undefined 
+      }) => {
         console.log('blob upload completed', blob, tokenPayload);
       },
     });

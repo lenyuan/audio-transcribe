@@ -60,22 +60,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             inlineData: { mimeType, data: base64Audio },
         };
         const textPart = { text: userPrompt };
-        
-        const genAIConfig = {
-            systemInstruction,
-            responseMimeType: 'application/json',
-            responseSchema: schema,
-        };
 
         console.time('geminiTranscriptionTime');
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: { parts: [audioPart, textPart] },
-            config: genAIConfig,
+            config: {
+              systemInstruction,
+              responseMimeType: 'application/json',
+              responseSchema: schema,
+            },
         });
         console.timeEnd('geminiTranscriptionTime');
 
-        const jsonText = response.text.trim();
+        const jsonText = response.text?.trim();
+        if (!jsonText) {
+          throw new Error("Received an empty response from the transcription service.");
+        }
         const parsedJson = JSON.parse(jsonText) as TranscriptSegment[];
 
         if (!parsedJson || (Array.isArray(parsedJson) && parsedJson.length === 0)) {
