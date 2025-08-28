@@ -1,4 +1,11 @@
 {
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs22.x",
+      "includeFiles": "node_modules/@vercel/blob/**",
+      "tsconfig": "tsconfig.api.json"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",

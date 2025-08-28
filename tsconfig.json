@@ -4,17 +4,22 @@
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "module": "ESNext",
     "skipLibCheck": true,
+
+    /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+
+    /* Linting */
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["api", "components", "services", "utils", "types.ts", "App.tsx", "index.tsx", "vite.config.ts"],
-  "exclude": ["node_modules"]
+  "include": ["components", "services", "utils", "types.ts", "App.tsx", "index.tsx"],
+  "exclude": ["node_modules", "api"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
