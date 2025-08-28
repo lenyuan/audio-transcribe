@@ -2,10 +2,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { type TranscriptSegment } from '../types';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export const config = {
-  maxDuration: 300,
-};
-
 const setCorsHeaders = (res: VercelResponse) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-control-allow-methods", "POST, OPTIONS");
@@ -73,7 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         console.timeEnd('geminiTranscriptionTime');
 
-        const jsonText = response.text?.trim();
+        const jsonText = response.text.trim();
         if (!jsonText) {
           throw new Error("Received an empty response from the transcription service.");
         }
