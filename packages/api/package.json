@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
   "dependencies": {
     "@google/genai": "^1.16.0",
     "@vercel/blob": "^0.23.4",

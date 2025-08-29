@@ -11,11 +11,13 @@ An intelligent tool to transcribe M4A audio files into text, complete with speak
     *   新增一個名為 `API_KEY` 的變數。
     *   將您的 Google Gemini API 金鑰貼到值 (value) 的欄位中。
 
-2.  **清除建置快取 (Clear Build Cache)**:
-    *   當您重新部署時，特別是更新了後端依賴套件後，建議勾選 **Clear build cache** 選項以確保使用最新的設定。
+2.  **建置設定 (Build Settings)**:
+    *   Vercel 應能自動偵測此為 Monorepo 專案。
+    *   **重要**: 在 Vercel 的 "Root Directory" 設定中，**不要**指定任何子目錄，將其留空，指向 Monorepo 的根目錄。
+    *   建置指令會自動使用根目錄 `package.json` 中的 `"build"` 指令 (`npm run build`)。
 
-3.  **檔案處理流程 (File Processing Flow)**:
-    *   本專案使用 Vercel Blob 進行客戶端直接上傳，以繞過 Serverless Function 的請求大小限制，從而支援大型音檔的處理。
+3.  **清除建置快取 (Clear Build Cache)**:
+    *   當您重新部署時，特別是更新了後端依賴套件後，建議勾選 **Clear build cache** 選項以確保使用最新的設定。
 
 ## 效能與限制 (Performance & Limitations)
 
