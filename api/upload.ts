@@ -1,4 +1,4 @@
-// Fix: Import server-side Vercel Blob functions from '@vercel/blob/server'.
+// Fix: Changed import from '@vercel/blob' to '@vercel/blob/server' for server-side helpers.
 import { handleUpload, type HandleUploadBody, type PutBlobResult } from '@vercel/blob/server';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
