@@ -13,16 +13,12 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "composite": true
   },
   "include": [
-    "components",
-    "services",
-    "utils",
-    "types.ts",
-    "App.tsx",
-    "index.tsx",
-    "vite.config.ts"
+    "**/*.ts",
+    "**/*.tsx"
   ],
   "exclude": [
     "node_modules"

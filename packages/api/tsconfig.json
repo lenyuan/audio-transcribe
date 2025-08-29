@@ -10,7 +10,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "outDir": ".vercel/output/functions/api",
-    "rootDir": "."
+    "rootDir": ".",
+    "composite": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
