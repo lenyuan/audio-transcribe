@@ -1,0 +1,13 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^1.16.0",
+    "@vercel/blob": "^0.25.0",
+    "@vercel/node": "^3.2.20"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

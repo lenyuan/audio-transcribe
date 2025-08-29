@@ -2,15 +2,11 @@
   "name": "lenyuan-monorepo",
   "private": true,
   "workspaces": [
-    "packages/frontend"
+    "packages/frontend",
+    "api"
   ],
   "scripts": {
     "build": "npm run build --workspace=frontend"
-  },
-  "dependencies": {
-    "@google/genai": "^1.21.0",
-    "@vercel/blob": "^0.25.0",
-    "@vercel/node": "^3.2.20"
   },
   "devDependencies": {
     "typescript": "^5.6.0"
