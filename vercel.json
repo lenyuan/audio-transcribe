@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 300
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
