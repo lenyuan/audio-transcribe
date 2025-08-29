@@ -1,5 +1,5 @@
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/server';
-import type { PutBlobResult } from '@vercel/blob';
+// Fix: Import server-side Vercel Blob functions from '@vercel/blob/server'.
+import { handleUpload, type HandleUploadBody, type PutBlobResult } from '@vercel/blob/server';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Function to set CORS headers
