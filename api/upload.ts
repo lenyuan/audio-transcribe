@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/server';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import type { PutBlobResult } from '@vercel/blob';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // Function to set CORS headers
 const setCorsHeaders = (res: VercelResponse) => {
